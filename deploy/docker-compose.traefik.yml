@@ -1,0 +1,26 @@
+# Optional overlay for the RajLabs Traefik host.
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f deploy/docker-compose.traefik.yml up -d --build
+#
+# It attaches the web container to the existing Traefik network and publishes
+# the router labels. The API stays on the private `spell-lab` network.
+services:
+  web:
+    networks:
+      - spell
+      - backend
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: "dev-backend-network"
+      traefik.http.routers.spell.rule: "Host(`spell.lab`) || Host(`spell.lab.rajlabs.in`) || Host(`spell.lab.lan`)"
+      traefik.http.routers.spell.entrypoints: "websecure"
+      traefik.http.routers.spell.priority: "300"
+      traefik.http.routers.spell.middlewares: "gzip-compress@file,security-headers@file"
+      traefik.http.routers.spell.tls: "true"
+      traefik.http.services.spell.loadbalancer.server.port: "80"
+
+networks:
+  backend:
+    external: true
+    name: dev-backend-network

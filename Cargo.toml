@@ -1,0 +1,41 @@
+[package]
+name = "spell-lab"
+version = "0.1.0"
+edition = "2021"
+description = "Confidence-ranked spellcheck REST API with per-user dictionaries"
+license = "MIT"
+repository = "https://github.com/authoritydmc/spell-lab"
+homepage = "https://spell.lab"
+readme = "README.md"
+
+[[bin]]
+name = "spell-lab"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1.0"
+axum = { version = "0.8", features = ["macros"] }
+chrono = { version = "0.4", features = ["serde"] }
+hex = "0.4"
+parking_lot = "0.12"
+rand = "0.8"
+redb = "2.6"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+sha2 = "0.10"
+thiserror = "2.0"
+tokio = { version = "1.0", features = ["full"] }
+tower = "0.5"
+tower-http = { version = "0.6", features = ["compression-gzip", "cors", "trace"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+uuid = { version = "1", features = ["v4"] }
+
+[dev-dependencies]
+tempfile = "3"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = true

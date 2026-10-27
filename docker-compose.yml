@@ -1,0 +1,57 @@
+name: spell-lab
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: spell-lab-api:local
+    restart: unless-stopped
+    environment:
+      SPELL_BIND: 0.0.0.0:8080
+      SPELL_DB_PATH: /data/spell.db
+      SPELL_PUBLIC_URL: ${SPELL_PUBLIC_URL:-http://localhost:8098}
+      SPELL_MAX_TEXT_CHARS: ${SPELL_MAX_TEXT_CHARS:-20000}
+      SPELL_DEFAULT_MAX_SUGGESTIONS: ${SPELL_DEFAULT_MAX_SUGGESTIONS:-5}
+      SPELL_SUGGESTION_CACHE_ENTRIES: ${SPELL_SUGGESTION_CACHE_ENTRIES:-10000}
+      RUST_LOG: ${RUST_LOG:-info,tower_http=info}
+    volumes:
+      - spell_data:/data
+    expose:
+      - "8080"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/api/v1/health"]
+      interval: 30s
+      timeout: 4s
+      start_period: 15s
+      retries: 3
+    networks:
+      - spell
+
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    image: spell-lab-web:local
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${SPELL_WEB_PORT:-8098}:80"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/"]
+      interval: 30s
+      timeout: 4s
+      start_period: 5s
+      retries: 3
+    networks:
+      - spell
+
+volumes:
+  spell_data:
+    name: spell-lab-data
+
+networks:
+  spell:
+    name: spell-lab

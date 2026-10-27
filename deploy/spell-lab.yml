@@ -1,0 +1,25 @@
+# =============================================================================
+# spell.lab — confidence-ranked spellcheck API + React tester
+# -----------------------------------------------------------------------------
+# Local-only (*.lab), HTTPS via the RajLab wildcard certificate.
+#
+# The React bundle is served by a user-level Nginx on the Docker backend
+# gateway (172.20.0.1:8098), which also proxies /api/ to the loopback-only Rust
+# API (127.0.0.1:8099). This keeps the API off the LAN and works without Docker
+# daemon access; the repository also ships a fully containerised deployment.
+# =============================================================================
+http:
+  services:
+    lab-spell:
+      loadBalancer:
+        servers:
+          - url: "http://172.20.0.1:8098"
+
+  routers:
+    local-spell-tls:
+      rule: "Host(`spell.lab`) || Host(`spell.lab.rajlabs.in`) || Host(`spell.lab.lan`)"
+      entryPoints: [websecure]
+      service: lab-spell
+      priority: 300
+      middlewares: [gzip-compress, security-headers]
+      tls: {}

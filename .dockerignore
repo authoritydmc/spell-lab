@@ -1,0 +1,15 @@
+.git
+.github
+target
+web
+deploy/data
+deploy/logs
+deploy/nginx-prefix
+deploy/nginx.pid
+**/*.db
+**/*.db-*
+.env
+.env.*
+!.env.example
+README.md
+docs

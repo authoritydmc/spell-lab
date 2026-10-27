@@ -1,0 +1,31 @@
+# Rust
+/target/
+**/*.rs.bk
+Cargo.lock.orig
+
+# Local data and runtime state
+/deploy/data/
+/deploy/logs/
+/deploy/nginx-prefix/
+/deploy/nginx-tmp/
+/deploy/*.pid
+/data/*.db
+/data/*.db-*
+*.db
+*.db-journal
+
+# Frontend
+/web/node_modules/
+/web/dist/
+/web/.vite/
+npm-debug.log*
+yarn-error.log*
+
+# Environment and editor
+.env
+.env.*
+!.env.example
+.DS_Store
+.idea/
+.vscode/
+*.swp
