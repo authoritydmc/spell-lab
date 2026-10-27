@@ -1,6 +1,7 @@
 import { ExternalLink } from "lucide-react";
 import { api } from "../api";
 import type { StatsResponse } from "../types";
+import { ApiCallViewer } from "./ApiCallViewer";
 
 interface Props {
   stats?: StatsResponse;
@@ -176,6 +177,22 @@ curl -sX POST ${base}/dictionary/words \\
           </div>
         </div>
       </article>
+
+      <div className="split">
+        <ApiCallViewer
+          title="Health & Liveness Endpoint"
+          method="GET"
+          path="/api/v1/health"
+          description="Instant liveness, version, and global lexicon word counts."
+        />
+
+        <ApiCallViewer
+          title="Observability & Process Metrics"
+          method="GET"
+          path="/api/v1/metrics"
+          description="Real-time telemetry showing RSS, Peak HWM, Virtual memory, load averages, and LRU suggestion cache stats."
+        />
+      </div>
     </>
   );
 }

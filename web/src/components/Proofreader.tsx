@@ -4,6 +4,7 @@ import { Eraser, Loader2, RotateCcw, Sparkles, Wand2 } from "lucide-react";
 import { api } from "../api";
 import { useDebouncedValue } from "../hooks";
 import type { EngineSettings, TokenView } from "../types";
+import { ApiCallViewer } from "./ApiCallViewer";
 
 const DEMO_TEXT =
   "Teh quick brown fox jumps over teh lazy dog. I recieve alot of email, " +
@@ -309,6 +310,23 @@ export function Proofreader({ settings, onSettingsChange, apiKey, notify, onLate
           )}
         </article>
       </div>
+
+      <ApiCallViewer
+        title="Check Text API Call"
+        method="POST"
+        path="/api/v1/spell/check"
+        headers={apiKey ? { "X-API-Key": apiKey } : {}}
+        body={{
+          text: debouncedText || text,
+          maxSuggestions: settings.maxSuggestions,
+          maxDistance: settings.maxDistance,
+          minConfidence: settings.minConfidence,
+          includeUserDictionary: settings.includeUserDictionary && Boolean(apiKey),
+          ignoreAcronyms: settings.ignoreAcronyms,
+        }}
+        response={data}
+        description="Inspect and replay the exact REST API payload submitted to the spellchecker for the text above."
+      />
     </>
   );
 }

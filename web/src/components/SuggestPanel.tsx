@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Loader2, Search, Sparkles } from "lucide-react";
 import { api } from "../api";
 import type { EngineSettings } from "../types";
+import { ApiCallViewer } from "./ApiCallViewer";
 
 interface Props {
   settings: EngineSettings;
@@ -241,6 +242,33 @@ export function SuggestPanel({ settings, apiKey }: Props) {
           </div>
         </div>
       </article>
+
+      <div className="split">
+        <ApiCallViewer
+          title="Single Word Suggest API"
+          method="POST"
+          path="/api/v1/spell/suggest"
+          headers={apiKey ? { "X-API-Key": apiKey } : {}}
+          body={{
+            word: submittedWord || word,
+            maxSuggestions: settings.maxSuggestions,
+            maxDistance: settings.maxDistance,
+            minConfidence: settings.minConfidence,
+            includeUserDictionary: includeUser,
+          }}
+          response={suggestQuery.data}
+          description="Inspect and replay the POST /api/v1/spell/suggest endpoint call for the single-word lookup above."
+        />
+
+        <ApiCallViewer
+          title="Prefix Autocomplete API"
+          method="GET"
+          path={`/api/v1/spell/complete?prefix=${encodeURIComponent(submittedPrefix || prefix)}&limit=12&includeUserDictionary=${includeUser}`}
+          headers={apiKey ? { "X-API-Key": apiKey } : {}}
+          response={completeQuery.data}
+          description="Inspect and replay the GET /api/v1/spell/complete endpoint call for the prefix autocompletion above."
+        />
+      </div>
     </>
   );
 }

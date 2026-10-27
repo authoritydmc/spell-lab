@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Database, Download, FileUp, Loader2, Plus, RefreshCw, Trash2, Upload } from "lucide-react";
 import { api } from "../api";
 import type { UserView } from "../types";
+import { ApiCallViewer } from "./ApiCallViewer";
 
 interface Props {
   apiKey: string | null;
@@ -144,7 +145,8 @@ export function DictionaryPanel({
   };
 
   return (
-    <div className="split wide-left">
+    <>
+      <div className="split wide-left">
       <article className="card">
         <div className="card-head">
           <div>
@@ -334,5 +336,28 @@ export function DictionaryPanel({
         </div>
       </article>
     </div>
+
+    <div className="split">
+      <ApiCallViewer
+        title="List Dictionary Words API"
+        method="GET"
+        path="/api/v1/dictionary?limit=2000&offset=0"
+        headers={apiKey ? { "X-API-Key": apiKey } : {}}
+        response={dictionaryQuery.data}
+        description="Inspect the paginated list of custom words stored under your tenant identity."
+      />
+
+      <ApiCallViewer
+        title="Add Words API"
+        method="POST"
+        path="/api/v1/dictionary/words"
+        headers={apiKey ? { "X-API-Key": apiKey } : {}}
+        body={{
+          words: newWord.trim() ? [newWord.trim()] : ["sampleword", "myproduct"],
+        }}
+        description="Submit words directly to your transactional personal dictionary partition."
+      />
+    </div>
+  </>
   );
 }
