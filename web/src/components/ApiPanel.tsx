@@ -1,6 +1,18 @@
-import { ExternalLink } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import {
+  Activity,
+  Cpu,
+  Database,
+  ExternalLink,
+  HardDrive,
+  Layers,
+  LineChart,
+  RefreshCw,
+  Server,
+  Zap,
+} from "lucide-react";
 import { api } from "../api";
-import type { StatsResponse } from "../types";
+import type { MetricsResponse, StatsResponse } from "../types";
 import { ApiCallViewer } from "./ApiCallViewer";
 
 interface Props {
@@ -13,8 +25,149 @@ export function ApiPanel({ stats, statsLoading }: Props) {
     ? api.base
     : `${window.location.origin}${api.base}`;
 
+  const metricsQuery = useQuery<MetricsResponse>({
+    queryKey: ["metrics"],
+    queryFn: api.metrics,
+    refetchInterval: 5_000,
+  });
+
+  const m = metricsQuery.data;
+
   return (
     <>
+      {/* =====================================================================
+          1. LIVE PERFORMANCE & RESOURCE TELEMETRY
+          ===================================================================== */}
+      <article className="card perf-card">
+        <div className="card-head">
+          <div>
+            <p className="kicker">REAL-TIME TELEMETRY</p>
+            <h2>Performance & System Vitals</h2>
+          </div>
+          <div className="card-actions-row">
+            <span className="live-badge">
+              <span className="live-dot" /> Polling (5s)
+            </span>
+            <button
+              className="btn ghost small"
+              type="button"
+              onClick={() => {
+                metricsQuery.refetch();
+              }}
+              disabled={metricsQuery.isFetching}
+            >
+              <RefreshCw size={12} className={metricsQuery.isFetching ? "spin" : ""} /> Refresh
+            </button>
+          </div>
+        </div>
+
+        <div className="perf-grid">
+          {/* Memory Vital */}
+          <div className="perf-tile">
+            <div className="perf-tile-header">
+              <span className="perf-tile-label">
+                <HardDrive size={14} /> Resident Memory (RSS)
+              </span>
+              <span className="perf-pill ok">Active</span>
+            </div>
+            <div className="perf-tile-value">
+              {m ? `${m.memory.residentMb.toFixed(1)} MB` : <span className="skeleton w-45" />}
+            </div>
+            <div className="perf-progress-wrap">
+              <div
+                className="perf-progress-bar"
+                style={{
+                  width: m
+                    ? `${Math.min(100, (m.memory.residentMb / m.memory.peakResidentMb) * 100)}%`
+                    : "0%",
+                }}
+              />
+            </div>
+            <div className="perf-tile-foot">
+              <span>Peak: {m ? `${m.memory.peakResidentMb.toFixed(1)} MB` : "—"}</span>
+              <span>Virtual: {m ? `${m.memory.virtualMb.toFixed(1)} MB` : "—"}</span>
+            </div>
+          </div>
+
+          {/* System Load & Threads */}
+          <div className="perf-tile">
+            <div className="perf-tile-header">
+              <span className="perf-tile-label">
+                <Cpu size={14} /> CPU & Concurrency
+              </span>
+              <span className="perf-pill accent">
+                {m ? `${m.memory.threads} OS Threads` : "Threads"}
+              </span>
+            </div>
+            <div className="perf-tile-value">
+              {m ? m.systemLoad.map((l) => l.toFixed(2)).join(" · ") : <span className="skeleton w-55" />}
+            </div>
+            <p className="perf-tile-subtitle">System load averages (1m, 5m, 15m)</p>
+            <div className="perf-tile-foot">
+              <span>Rayon + Tokio runtime</span>
+              <span>Non-blocking async</span>
+            </div>
+          </div>
+
+          {/* LRU Cache Hit Rate */}
+          <div className="perf-tile">
+            <div className="perf-tile-header">
+              <span className="perf-tile-label">
+                <Zap size={14} /> Suggestion Cache Hit Rate
+              </span>
+              <span className="perf-pill neutral">LRU 10k</span>
+            </div>
+            <div className="perf-tile-value">
+              {m ? (
+                `${(m.suggestionCache.hitRate * 100).toFixed(1)}%`
+              ) : (
+                <span className="skeleton w-35" />
+              )}
+            </div>
+            <div className="perf-progress-wrap">
+              <div
+                className="perf-progress-bar accent"
+                style={{
+                  width: m ? `${m.suggestionCache.hitRate * 100}%` : "0%",
+                }}
+              />
+            </div>
+            <div className="perf-tile-foot">
+              <span>{m ? `${m.suggestionCache.hits.toLocaleString()} hits` : "—"}</span>
+              <span>{m ? `${m.suggestionCache.misses.toLocaleString()} misses` : "—"}</span>
+            </div>
+          </div>
+
+          {/* Lexicon & Storage Scale */}
+          <div className="perf-tile">
+            <div className="perf-tile-header">
+              <span className="perf-tile-label">
+                <Database size={14} /> Corpus & Tenant Scale
+              </span>
+              <span className="perf-pill purple">Redb Zero-Copy</span>
+            </div>
+            <div className="perf-tile-value">
+              {m ? (
+                `${m.globalWords.toLocaleString()}`
+              ) : (
+                <span className="skeleton w-45" />
+              )}
+              <small> words</small>
+            </div>
+            <p className="perf-tile-subtitle">
+              Embedded English Unigrams + Bigrams
+            </p>
+            <div className="perf-tile-foot">
+              <span>{m ? `${m.users} tenant users` : "—"}</span>
+              <span>{m ? `${m.userWords} custom words` : "—"}</span>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      {/* =====================================================================
+          2. API CALLS & QUICK START
+          ===================================================================== */}
       <div className="split">
         <article className="card">
           <div className="card-head">
@@ -64,9 +217,11 @@ curl -sX POST ${base}/dictionary/words \\
               ["POST", "/api/v1/spell/correct", "Apply high-confidence corrections."],
               ["GET", "/api/v1/spell/complete", "Prefix completion from the trie."],
               ["GET", "/api/v1/dictionary", "List your dictionary (paginated)."],
-              ["POST", "/api/v1/dictionary/words", "Add up to 5,000 words."],
+              ["POST", "/api/v1/dictionary/words", "Add up to 50,000 words."],
+              ["GET", "/api/v1/dictionary/export", "Export in txt, csv, or json format."],
               ["DEL", "/api/v1/dictionary/words/{word}", "Remove one word."],
               ["GET", "/api/v1/health", "Liveness and corpus size."],
+              ["GET", "/api/v1/metrics", "Real-time RAM, CPU, load & cache telemetry."],
               ["GET", "/api/v1/stats", "Cache, storage and runtime stats."],
             ].map(([method, path, description]) => (
               <div key={path}>
@@ -81,11 +236,14 @@ curl -sX POST ${base}/dictionary/words \\
         </article>
       </div>
 
+      {/* =====================================================================
+          3. ARCHITECTURE & MULTI-LAYER ALGORITHMS
+          ===================================================================== */}
       <article className="card doc-card">
         <div className="card-head">
           <div>
             <p className="kicker">UNDER THE HOOD</p>
-            <h2>Storage, caching and deployment</h2>
+            <h2>Storage, caching and algorithms</h2>
           </div>
           <a
             className="btn ghost small"
@@ -134,50 +292,51 @@ curl -sX POST ${base}/dictionary/words \\
 
         <div className="feature-grid">
           <div>
-            <h3>Bloom + trie</h3>
+            <h3>Bloom + compact trie</h3>
             <p>
-              A Bloom filter rejects most unknown words before the compact trie and hash
-              index are touched.
+              A Bloom filter rejects unknown words in $O(1)$ time before traversing
+              the compact trie and hash indexes.
             </p>
           </div>
           <div>
-            <h3>BK-tree fallback</h3>
+            <h3>BK-tree metric space</h3>
             <p>
-              Levenshtein pruning gives an independent neighbourhood when the trie
-              automaton is truncated.
+              Discrete metric space partitioned by Levenshtein distance provides an independent
+              neighbourhood when the trie automaton is pruned.
             </p>
           </div>
           <div>
             <h3>LRU suggestion cache</h3>
             <p>
-              Global candidates are memoised by word + settings; user dictionaries are
-              merged after the cache.
+              Global candidate lists are memoised by word and settings; user dictionary terms are
+              dynamically blended in after cache retrieval.
             </p>
           </div>
           <div>
-            <h3>Per-user cache</h3>
+            <h3>Multi-tenant Redb storage</h3>
             <p>
-              Each user lexicon is built once and invalidated on dictionary writes.
-              Embedded redb stores the data.
+              Each user lexicon is isolated under `{`{user_id}:{word}`}` compound keys with transactional ACID
+              safety in embedded redb.
             </p>
           </div>
           <div>
-            <h3>Docker-first</h3>
+            <h3>QWERTY & spatial geometry</h3>
             <p>
-              Multi-stage API and web images, non-root runtime, healthchecks, persistent
-              volume and Traefik labels.
+              Calculates Euclidean keyboard neighbor penalties so adjacent typo keys (e.g. `w` instead of `e`) score higher confidence.
             </p>
           </div>
           <div>
-            <h3>Observable</h3>
+            <h3>Frequency priors</h3>
             <p>
-              Structured tracing, JSON access logs at the edge, health/stats endpoints and
-              cache hit rates.
+              Unigram occurrence stats from Google Web Trillion ensure everyday words always outrank obscure dictionary entries.
             </p>
           </div>
         </div>
       </article>
 
+      {/* =====================================================================
+          4. INTERACTIVE LIVE BACKEND API TESTERS
+          ===================================================================== */}
       <div className="split">
         <ApiCallViewer
           title="Health & Liveness Endpoint"
@@ -190,6 +349,7 @@ curl -sX POST ${base}/dictionary/words \\
           title="Observability & Process Metrics"
           method="GET"
           path="/api/v1/metrics"
+          response={m}
           description="Real-time telemetry showing RSS, Peak HWM, Virtual memory, load averages, and LRU suggestion cache stats."
         />
       </div>

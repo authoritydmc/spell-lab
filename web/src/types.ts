@@ -133,6 +133,25 @@ export interface HealthResponse {
   users: number;
 }
 
+export interface MemoryStats {
+  residentMb: number;
+  peakResidentMb: number;
+  virtualMb: number;
+  threads: number;
+}
+
+export interface MetricsResponse {
+  version: string;
+  apiVersion: string;
+  uptimeSeconds: number;
+  memory: MemoryStats;
+  systemLoad: number[];
+  globalWords: number;
+  users: number;
+  userWords: number;
+  suggestionCache: CacheStats;
+}
+
 export interface CacheStats {
   entries: number;
   capacity: number;

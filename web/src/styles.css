@@ -1587,3 +1587,182 @@ footer {
   padding: 3px 8px;
 }
 
+/* ============================================================================
+   Telemetry & Live Performance Dashboard
+   ============================================================================ */
+.perf-card {
+  margin-bottom: 24px;
+  background: linear-gradient(180deg, rgba(13, 20, 30, 0.85) 0%, rgba(9, 14, 21, 0.95) 100%);
+  border: 1px solid rgba(94, 234, 212, 0.22);
+}
+
+.card-actions-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: rgba(52, 211, 153, 0.12);
+  border: 1px solid rgba(52, 211, 153, 0.25);
+  color: #34d399;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #34d399;
+  box-shadow: 0 0 8px #34d399;
+  animation: pulse 1.8s infinite;
+}
+
+@keyframes pulse {
+  0% { transform: scale(0.95); opacity: 0.8; }
+  50% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(0.95); opacity: 0.8; }
+}
+
+.perf-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-top: 14px;
+}
+
+@media (max-width: 1100px) {
+  .perf-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .perf-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.perf-tile {
+  background: rgba(16, 24, 37, 0.75);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.perf-tile:hover {
+  border-color: rgba(94, 234, 212, 0.3);
+  transform: translateY(-1px);
+}
+
+.perf-tile-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.perf-tile-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.perf-pill {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+
+.perf-pill.ok {
+  background: rgba(52, 211, 153, 0.16);
+  color: #34d399;
+  border: 1px solid rgba(52, 211, 153, 0.3);
+}
+
+.perf-pill.accent {
+  background: rgba(56, 189, 248, 0.16);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+.perf-pill.neutral {
+  background: rgba(148, 163, 184, 0.16);
+  color: #cbd5e1;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+.perf-pill.purple {
+  background: rgba(192, 132, 252, 0.16);
+  color: #c084fc;
+  border: 1px solid rgba(192, 132, 252, 0.3);
+}
+
+.perf-tile-value {
+  font-size: 22px;
+  font-weight: 700;
+  font-family: var(--sans);
+  color: #f1f5f9;
+  letter-spacing: -0.02em;
+  margin: 4px 0;
+}
+
+.perf-tile-value small {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.perf-tile-subtitle {
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--muted-2);
+}
+
+.perf-progress-wrap {
+  width: 100%;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  margin: 8px 0;
+  overflow: hidden;
+}
+
+.perf-progress-bar {
+  height: 100%;
+  border-radius: 999px;
+  background: #34d399;
+  transition: width 0.3s ease;
+}
+
+.perf-progress-bar.accent {
+  background: #38bdf8;
+}
+
+.perf-tile-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: auto;
+  padding-top: 8px;
+  border-top: 1px solid rgba(148, 163, 184, 0.08);
+  font-size: 11px;
+  color: var(--muted-2);
+  font-family: var(--mono);
+}
+
+

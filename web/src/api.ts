@@ -7,6 +7,7 @@ import type {
   DictionaryListResponse,
   HealthResponse,
   MeResponse,
+  MetricsResponse,
   RotateKeyResponse,
   StatsResponse,
   SuggestResponse,
@@ -84,6 +85,7 @@ export const api = {
 
   health: () => request<HealthResponse>("/health"),
   stats: () => request<StatsResponse>("/stats"),
+  metrics: () => request<MetricsResponse>("/metrics"),
 
   createUser(name = "Browser demo"): Promise<CreateUserResponse> {
     if (!creating) {
