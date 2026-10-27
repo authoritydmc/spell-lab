@@ -148,6 +148,24 @@ export const api = {
     return request<DictionaryListResponse>(`/dictionary?limit=${limit}&offset=${offset}`);
   },
 
+  async exportDictionary(format: "txt" | "csv" | "json" = "txt"): Promise<void> {
+    const headers = new Headers();
+    if (apiKey) headers.set("x-api-key", apiKey);
+    const response = await fetch(`${API_BASE}/dictionary/export?format=${format}`, { headers });
+    if (!response.ok) {
+      throw new ApiError(`Export failed: HTTP ${response.status}`, response.status);
+    }
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `dictionary.${format}`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    URL.revokeObjectURL(url);
+  },
+
   addWords(words: string[]) {
     return request<AddWordsResponse>("/dictionary/words", {
       method: "POST",

@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Database, Loader2, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { Database, Download, FileUp, Loader2, Plus, RefreshCw, Trash2, Upload } from "lucide-react";
 import { api } from "../api";
 import type { UserView } from "../types";
 
@@ -20,8 +20,10 @@ export function DictionaryPanel({
   onOpenIdentity,
 }: Props) {
   const queryClient = useQueryClient();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [newWord, setNewWord] = useState("");
   const [importText, setImportText] = useState("kubernetes\ngrafana\npostgresql");
+  const [exporting, setExporting] = useState(false);
 
   const dictionaryQuery = useQuery({
     queryKey: ["dictionary", apiKey],
@@ -94,6 +96,51 @@ export function DictionaryPanel({
       return;
     }
     addMutation.mutate(words);
+  };
+
+  const handleExport = async (format: "txt" | "csv" | "json" = "txt") => {
+    try {
+      setExporting(true);
+      await api.exportDictionary(format);
+      notify(`Exported dictionary as .${format}`);
+    } catch (err) {
+      notify(err instanceof Error ? err.message : "Failed to export", true);
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target?.result as string;
+      if (!text) return;
+      let words: string[] = [];
+      if (file.name.endsWith(".json")) {
+        try {
+          const parsed = JSON.parse(text);
+          words = Array.isArray(parsed) ? parsed : (parsed.words || []);
+        } catch {
+          notify("Invalid JSON file", true);
+          return;
+        }
+      } else {
+        words = text
+          .split(/[\r\n,]+/)
+          .map((w) => w.trim())
+          .filter(Boolean);
+      }
+      if (words.length === 0) {
+        notify("No words found in file", true);
+        return;
+      }
+      notify(`Importing ${words.length} words from file…`);
+      addMutation.mutate(words);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    };
+    reader.readAsText(file);
   };
 
   return (
@@ -184,6 +231,35 @@ export function DictionaryPanel({
           >
             <RefreshCw size={12} className={dictionaryQuery.isFetching ? "spin" : ""} /> Refresh
           </button>
+          <div className="btn-group">
+            <button
+              className="btn ghost small"
+              type="button"
+              disabled={exporting || !dictionaryQuery.data?.total}
+              onClick={() => handleExport("txt")}
+              title="Export as plain text"
+            >
+              {exporting ? <Loader2 size={12} className="spin" /> : <Download size={12} />} Export .txt
+            </button>
+            <button
+              className="btn ghost small"
+              type="button"
+              disabled={exporting || !dictionaryQuery.data?.total}
+              onClick={() => handleExport("csv")}
+              title="Export as CSV"
+            >
+              .csv
+            </button>
+            <button
+              className="btn ghost small"
+              type="button"
+              disabled={exporting || !dictionaryQuery.data?.total}
+              onClick={() => handleExport("json")}
+              title="Export as JSON"
+            >
+              .json
+            </button>
+          </div>
           <button
             className="btn danger small"
             type="button"
@@ -218,14 +294,32 @@ export function DictionaryPanel({
             placeholder={"kubernetes\ngrafana\npostgresql"}
             onChange={(event) => setImportText(event.target.value)}
           />
-          <button
-            className="btn primary"
-            type="submit"
-            disabled={!importText.trim() || addMutation.isPending || !apiKey}
-          >
-            {addMutation.isPending ? <Loader2 className="spin" size={14} /> : <Plus size={14} />}
-            Import words
-          </button>
+          <div className="button-row">
+            <button
+              className="btn primary"
+              type="submit"
+              disabled={!importText.trim() || addMutation.isPending || !apiKey}
+            >
+              {addMutation.isPending ? <Loader2 className="spin" size={14} /> : <Plus size={14} />}
+              Import words
+            </button>
+            <input
+              type="file"
+              ref={fileInputRef}
+              style={{ display: "none" }}
+              accept=".txt,.csv,.json"
+              onChange={handleFileUpload}
+            />
+            <button
+              className="btn ghost"
+              type="button"
+              disabled={addMutation.isPending || !apiKey}
+              onClick={() => fileInputRef.current?.click()}
+              title="Upload text, csv, or json file"
+            >
+              <FileUp size={14} /> Upload file
+            </button>
+          </div>
         </form>
 
         <div className="identity-box">

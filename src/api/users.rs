@@ -22,9 +22,32 @@ pub async fn create_user(
 ) -> Result<Json<CreateUserResponse>, AppError> {
     let name = body.and_then(|Json(body)| body.name);
     let db = state.db.clone();
-    let created = tokio::task::spawn_blocking(move || db.create_user(name))
-        .await
-        .map_err(|error| AppError::Internal(error.into()))??;
+    let created = tokio::task::spawn_blocking(move || {
+        let nu = db.create_user(name.clone())?;
+        // If this is a demo user or requested, seed useful domain terms
+        let is_demo = name.as_deref().map(|n| n.to_lowercase().contains("demo")).unwrap_or(false);
+        if is_demo {
+            let seed_words = vec![
+                "kubernetes".to_string(),
+                "traefik".to_string(),
+                "fastapi".to_string(),
+                "tailscale".to_string(),
+                "grafana".to_string(),
+                "postgresql".to_string(),
+                "grpc".to_string(),
+                "redis".to_string(),
+                "authentik".to_string(),
+                "coolify".to_string(),
+                "prometheus".to_string(),
+                "rajlab".to_string(),
+                "rajlabs".to_string(),
+            ];
+            let _ = db.add_user_words(&nu.user.id, &seed_words);
+        }
+        Ok::<_, anyhow::Error>(nu)
+    })
+    .await
+    .map_err(|error| AppError::Internal(error.into()))??;
     Ok(Json(CreateUserResponse {
         user: view(&created.user),
         api_key: created.api_key,

@@ -28,6 +28,7 @@ pub fn router(state: AppState) -> Router {
             "/dictionary",
             get(dictionary::list).delete(dictionary::clear),
         )
+        .route("/dictionary/export", get(dictionary::export))
         .route("/dictionary/words", post(dictionary::add_words))
         .route("/dictionary/import", post(dictionary::add_words))
         .route("/dictionary/words/{word}", delete(dictionary::remove_word))
