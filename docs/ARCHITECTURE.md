@@ -1,4 +1,4 @@
-# Architecture Deep Dive — Spell-Lab
+# Architecture — Spell-Lab
 
 High-performance, confidence-ranked spellchecker and morphological correction engine built in **Rust** (Axum, Rayon, Redb) with an interactive **React** interface.
 
@@ -13,9 +13,8 @@ flowchart TD
         CLI["External APIs / cURL / CI Scripts\n(Authorization: Bearer <key>)"]
     end
 
-    subgraph Edge["Edge & Reverse Proxy Layer"]
-        TraefikLocal["Local Traefik (rajlab)\nSNI: spell.lab, spell.lab.lan\nTLS: RajLabs Intermediate CA"]
-        TraefikCloud["Cloud Traefik (server1)\nSNI: spell.rajlabs.in\nTLS: Let's Encrypt / Wildcard"]
+    subgraph Edge["Reverse Proxy Layer"]
+        TraefikEdge["Traefik / Nginx Proxy\nSNI: spell.example.com\nTLS: Automated Let's Encrypt / Custom"]
     end
 
     subgraph Service["Spell-Lab Service Runtime"]
@@ -36,13 +35,10 @@ flowchart TD
         end
     end
 
-    Browser --> TraefikLocal
-    Browser --> TraefikCloud
-    CLI --> TraefikLocal
-    CLI --> TraefikCloud
+    Browser --> TraefikEdge
+    CLI --> TraefikEdge
 
-    TraefikLocal --> Nginx
-    TraefikCloud --> Nginx
+    TraefikEdge --> Nginx
     Nginx -->|/api/*| Router
     Router --> Auth
     Auth --> Redb
@@ -133,20 +129,19 @@ erDiagram
 
 ---
 
-## 4. Edge Traefik & TLS Certificate Architecture
+## 4. Edge Proxy & TLS Architecture
 
 ```mermaid
 sequenceDiagram
     autonumber
     actor Client as User / Browser
-    participant Traefik as Traefik 3.6 Reverse Proxy
-    participant CertSigner as RajLabs PKI (cert-signer)
+    participant Traefik as Reverse Proxy (Traefik / Nginx)
     participant SpellWeb as Nginx Frontend (spell-lab-web)
     participant SpellAPI as Rust Core (spell-lab-api)
 
-    Note over Client,Traefik: 1. TLS Handshake with SNI: spell.lab or spell.rajlabs.in
-    Traefik->>Traefik: Match SNI in dynamic TLS stores (spell.lab.crt)
-    Traefik-->>Client: Serve TLS Certificate (Issued by RajLab int-server CA)
+    Note over Client,Traefik: 1. TLS Handshake with SNI: spell.example.com
+    Traefik->>Traefik: Match SNI in TLS stores (Let's Encrypt / Custom Cert)
+    Traefik-->>Client: Serve TLS Certificate
     Client->>Traefik: HTTP/2 GET / or POST /api/v1/spell/check
     Traefik->>SpellWeb: Proxy port 80
     alt Static SPA Asset Request

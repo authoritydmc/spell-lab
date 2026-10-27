@@ -185,8 +185,6 @@ yaml
 
 # Names / lab-specific vocabulary.
 raj
-rajlab
-rajlabs
 authoritydmc
 spellbook
 spellcheck

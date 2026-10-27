@@ -39,8 +39,6 @@ pub async fn create_user(
                 "authentik".to_string(),
                 "coolify".to_string(),
                 "prometheus".to_string(),
-                "rajlab".to_string(),
-                "rajlabs".to_string(),
             ];
             let _ = db.add_user_words(&nu.user.id, &seed_words);
         }

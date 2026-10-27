@@ -27,8 +27,8 @@ Features native per-user isolated custom dictionaries, multi-layered spellcheck 
   - [7. Telemetry & Observability (`/api/v1/metrics`, `/api/v1/stats`)](#7-telemetry--observability-apiv1metrics-apiv1stats)
 - [Deployment Guide](#deployment-guide)
   - [Native Systemd Service (Local)](#native-systemd-service-local)
-  - [Docker Compose (Local or Production)](#docker-compose-local-or-production)
-  - [Traefik Edge Routing & TLS Certificates](#traefik-edge-routing--tls-certificates)
+  - [Docker Compose](#docker-compose)
+  - [Reverse Proxy & TLS Termination](#reverse-proxy--tls-termination)
 - [Testing & Quality Assurance](#testing--quality-assurance)
 - [License](#license)
 
@@ -44,13 +44,13 @@ Features native per-user isolated custom dictionaries, multi-layered spellcheck 
   - **QWERTY Spatial Distance**: Keyboard neighbor distance penalties (e.g. typing `w` instead of `e` incurs a much lower penalty than `p`).
   - **Frequency-Weighted Confidence Ranking**: Scores suggestions from $0$ to $100\%$ using a combination of edit distance, QWERTY geometry, source priority, and Google Web Trillion corpus unigram frequencies.
 - **Isolated Per-User Dictionaries**:
-  - User custom jargon, acronyms, and names are encrypted and indexed separately using embedded transactional storage ([`redb`](https://github.com/cberner/redb)).
+  - User custom jargon, acronyms, and names are indexed separately using embedded transactional storage ([`redb`](https://github.com/cberner/redb)).
   - Fast in-memory user lexicon caching with atomic invalidation on updates.
   - Bulk word import (newline, CSV, JSON) and multi-format export (`.txt`, `.csv`, `.json`).
 - **Production Observability & Metrics**:
   - Real-time telemetry via `GET /api/v1/metrics`: Resident Set Size (RSS), Peak HWM, Virtual memory, thread count, system load averages, and suggestion cache hit rates.
-- **Local-First & Cloud Ready**:
-  - Runs locally with zero dependencies or containerized via Docker on x86_64 and ARM64 (aarch64).
+- **Cloud & Container Ready**:
+  - Runs with zero dependencies or containerized via Docker on x86_64 and ARM64 (aarch64).
 
 ---
 
@@ -60,10 +60,10 @@ For an in-depth exploration of algorithms, data structures, and database schema,
 
 ```mermaid
 flowchart TD
-    Client["Client Request (REST / JSON)"] --> Traefik["Traefik Edge Proxy\n(HTTPS SNI: spell.lab / spell.rajlabs.in)"]
-    Traefik --> Nginx["Nginx 1.27 Web Proxy\n(Port 80)"]
+    Client["Client Request (REST / JSON)"] --> Proxy["Edge Reverse Proxy (Traefik / Nginx)"]
+    Proxy --> Nginx["Nginx Web Gateway (Port 80)"]
     Nginx -->|Static UI Assets| Browser["React 19 SPA"]
-    Nginx -->|/api/v1/*| Axum["Rust Axum 0.8 Service\n(Port 8080)"]
+    Nginx -->|/api/v1/*| Axum["Rust Axum Service (Port 8080)"]
 
     subgraph Engine["Spell-Lab Engine Core"]
         Axum --> Tokenizer["Unicode Tokenizer"]
@@ -84,15 +84,14 @@ flowchart TD
 
 ## Real-World API Usage & Parameters
 
-All endpoints accept and return UTF-8 JSON. All responses include an `elapsedMs` timing parameter measuring execution latency.
+All endpoints accept and return UTF-8 JSON. Responses include an `elapsedMs` timing parameter measuring execution latency.
 
 ### 1. Authentication
 
-Include your API key via the HTTP request headers:
-- Header option 1: `X-API-Key: <your_api_key>`
-- Header option 2: `Authorization: Bearer <your_api_key>`
+Include your API key via HTTP request headers:
+- `X-API-Key: <your_api_key>` or `Authorization: Bearer <your_api_key>`
 
-> **Note**: Public requests without an API key use the global 381,705-word lexicon. Including an API key unlocks your personal vocabulary, which boosts matching priority.
+> Public requests without an API key query the global 381,705-word lexicon. Authenticated requests consult both the global lexicon and personal isolated vocabulary.
 
 ---
 
@@ -111,12 +110,12 @@ Scans a multi-word paragraph or sentence, tokenizes words, detects typos, and pr
 | `maxSuggestions` | `integer` | No | `5` | Maximum number of candidate suggestions returned per misspelled token (clamped 1 to 20). |
 | `maxDistance` | `integer` | No | `2` | Maximum allowable Damerau-Levenshtein edit distance for candidate matching (clamped 1 to 3). |
 | `minConfidence` | `float` | No | `0.0` | Minimum score threshold ($0.0$ to $100.0$) a candidate must reach to be included in suggestions. |
-| `includeUserDictionary` | `boolean` | No | `true` | When `true` and an API key is provided, searches your personal dictionary before the global corpus. |
-| `ignoreAcronyms` | `boolean` | No | `true` | When `true`, tokens consisting purely of uppercase letters (e.g., `NASA`, `REST`, `JSON`) are marked valid. |
+| `includeUserDictionary` | `boolean` | No | `true` | Searches personal dictionary before the global corpus when an API key is provided. |
+| `ignoreAcronyms` | `boolean` | No | `true` | When `true`, tokens consisting purely of uppercase letters (e.g. `NASA`, `REST`, `JSON`) are marked valid. |
 
-#### Real-World Example
+#### Example Request
 ```bash
-curl -s -X POST https://spell.lab/api/v1/spell/check \
+curl -s -X POST https://spell.example.com/api/v1/spell/check \
   -H "X-API-Key: sl_b5835ea79e..." \
   -H "Content-Type: application/json" \
   -d '{
@@ -129,7 +128,7 @@ curl -s -X POST https://spell.lab/api/v1/spell/check \
   }'
 ```
 
-#### Response Example
+#### Example Response
 ```json
 {
   "text": "Teh kubernetes clustr is runing smoothly.",
@@ -189,7 +188,7 @@ curl -s -X POST https://spell.lab/api/v1/spell/check \
 
 ### 3. Single-Word Suggestions (`/api/v1/spell/suggest`)
 
-Used for fast, targeted candidate lookup on a single token (e.g. typing or right-click context menus).
+Used for fast, targeted candidate lookup on a single token.
 
 #### Endpoint
 `POST /api/v1/spell/suggest`
@@ -204,43 +203,15 @@ Used for fast, targeted candidate lookup on a single token (e.g. typing or right
 | `minConfidence` | `float` | No | `0.0` | Minimum confidence score ($0.0$ to $100.0$). |
 | `includeUserDictionary` | `boolean` | No | `true` | Include authenticated user words. |
 
-#### Real-World Example
+#### Example Request
 ```bash
-curl -s -X POST https://spell.lab/api/v1/spell/suggest \
+curl -s -X POST https://spell.example.com/api/v1/spell/suggest \
   -H "Content-Type: application/json" \
   -d '{
     "word": "odre",
     "maxSuggestions": 3,
     "minConfidence": 75.0
   }'
-```
-
-#### Response Example
-```json
-{
-  "word": "odre",
-  "correct": false,
-  "userDictionaryIncluded": false,
-  "suggestions": [
-    {
-      "word": "order",
-      "distance": 1,
-      "confidence": 91,
-      "frequency": 2420184,
-      "source": "global",
-      "reason": "transposition"
-    },
-    {
-      "word": "ore",
-      "distance": 1,
-      "confidence": 82,
-      "frequency": 61203,
-      "source": "global",
-      "reason": "deletion"
-    }
-  ],
-  "elapsedMs": 0.82
-}
 ```
 
 ---
@@ -252,36 +223,9 @@ Instant prefix-based completion powered by the Compact Prefix Trie.
 #### Endpoint
 `GET /api/v1/spell/complete?prefix=<str>&limit=<int>&includeUserDictionary=<bool>`
 
-#### Query Parameters
-
-| Parameter | Type | Required | Default | Description |
-|---|---|---|---|---|
-| `prefix` | `string` | **Yes** | — | The prefix string to autocomplete (minimum 1 character). |
-| `limit` | `integer` | No | `10` | Max completions to return (clamped 1 to 50). |
-| `includeUserDictionary` | `boolean` | No | `true` | Prioritize and search personal vocabulary. |
-
-#### Real-World Example
+#### Example Request
 ```bash
-curl -s "https://spell.lab/api/v1/spell/complete?prefix=kube&limit=3"
-```
-
-#### Response Example
-```json
-{
-  "prefix": "kube",
-  "completions": [
-    {
-      "word": "kubernetes",
-      "frequency": 85040,
-      "source": "user"
-    },
-    {
-      "word": "kuber",
-      "frequency": 1204,
-      "source": "global"
-    }
-  ]
-}
+curl -s "https://spell.example.com/api/v1/spell/complete?prefix=kube&limit=3"
 ```
 
 ---
@@ -293,19 +237,9 @@ Applies top-ranked corrections across the entire text block, returning both the 
 #### Endpoint
 `POST /api/v1/spell/correct`
 
-#### Request Parameters (JSON Body)
-
-| Parameter | Type | Required | Default | Description |
-|---|---|---|---|---|
-| `text` | `string` | **Yes** | — | Input text to auto-correct. |
-| `maxDistance` | `integer` | No | `2` | Max edit distance allowed for replacements. |
-| `minConfidence` | `float` | No | `80.0` | Minimum confidence required to accept an auto-replacement. |
-| `includeUserDictionary` | `boolean` | No | `true` | Consult user lexicon. |
-| `ignoreAcronyms` | `boolean` | No | `true` | Skip all-caps tokens. |
-
-#### Real-World Example
+#### Example Request
 ```bash
-curl -s -X POST https://spell.lab/api/v1/spell/correct \
+curl -s -X POST https://spell.example.com/api/v1/spell/correct \
   -H "Content-Type: application/json" \
   -d '{
     "text": "Teh fastpai server is runing.",
@@ -313,46 +247,13 @@ curl -s -X POST https://spell.lab/api/v1/spell/correct \
   }'
 ```
 
-#### Response Example
-```json
-{
-  "original": "Teh fastpai server is runing.",
-  "corrected": "The fastapi server is running.",
-  "changes": [
-    {
-      "start": 0,
-      "end": 3,
-      "original": "Teh",
-      "replacement": "The",
-      "confidence": 92
-    },
-    {
-      "start": 4,
-      "end": 11,
-      "original": "fastpai",
-      "replacement": "fastapi",
-      "confidence": 90
-    },
-    {
-      "start": 22,
-      "end": 28,
-      "original": "runing",
-      "replacement": "running",
-      "confidence": 88
-    }
-  ],
-  "elapsedMs": 1.64
-}
-```
-
 ---
 
 ### 6. User Dictionary & Bulk Operations (`/api/v1/dictionary/*`)
 
 #### Create Identity (`POST /api/v1/users`)
-Creates a new tenant identity with an isolated dictionary:
 ```bash
-curl -s -X POST https://spell.lab/api/v1/users \
+curl -s -X POST https://spell.example.com/api/v1/users \
   -H "Content-Type: application/json" \
   -d '{"name": "Engineering Team"}'
 ```
@@ -360,7 +261,7 @@ curl -s -X POST https://spell.lab/api/v1/users \
 #### Bulk Import (`POST /api/v1/dictionary/import` or `POST /api/v1/dictionary/words`)
 Supports importing up to **50,000 words** in a single transaction via an array or raw text payload:
 ```bash
-curl -s -X POST https://spell.lab/api/v1/dictionary/import \
+curl -s -X POST https://spell.example.com/api/v1/dictionary/import \
   -H "X-API-Key: <your_key>" \
   -H "Content-Type: application/json" \
   -d '{
@@ -369,35 +270,34 @@ curl -s -X POST https://spell.lab/api/v1/dictionary/import \
 ```
 
 #### Bulk Export (`GET /api/v1/dictionary/export`)
-Exports the entire personal dictionary in `.txt`, `.csv`, or `.json` format:
 ```bash
 # Export as plain newline-delimited text
-curl -s "https://spell.lab/api/v1/dictionary/export?format=txt" -H "X-API-Key: <key>" -o dictionary.txt
+curl -s "https://spell.example.com/api/v1/dictionary/export?format=txt" -H "X-API-Key: <key>" -o dictionary.txt
 
 # Export as CSV
-curl -s "https://spell.lab/api/v1/dictionary/export?format=csv" -H "X-API-Key: <key>" -o dictionary.csv
+curl -s "https://spell.example.com/api/v1/dictionary/export?format=csv" -H "X-API-Key: <key>" -o dictionary.csv
 
 # Export as JSON with user metadata
-curl -s "https://spell.lab/api/v1/dictionary/export?format=json" -H "X-API-Key: <key>" -o dictionary.json
+curl -s "https://spell.example.com/api/v1/dictionary/export?format=json" -H "X-API-Key: <key>" -o dictionary.json
 ```
 
 #### Delete Single Word (`DELETE /api/v1/dictionary/words/{word}`)
 ```bash
-curl -s -X DELETE https://spell.lab/api/v1/dictionary/words/argocd -H "X-API-Key: <key>"
+curl -s -X DELETE https://spell.example.com/api/v1/dictionary/words/argocd -H "X-API-Key: <key>"
 ```
 
 #### Clear Entire Dictionary (`DELETE /api/v1/dictionary`)
 ```bash
-curl -s -X DELETE https://spell.lab/api/v1/dictionary -H "X-API-Key: <key>"
+curl -s -X DELETE https://spell.example.com/api/v1/dictionary -H "X-API-Key: <key>"
 ```
 
 ---
 
 ### 7. Telemetry & Observability (`/api/v1/metrics`, `/api/v1/stats`)
 
-`GET /api/v1/metrics` provides sub-millisecond process insights without heavy scrapers:
+`GET /api/v1/metrics` provides sub-millisecond process insights without heavy external agents:
 ```bash
-curl -s https://spell.lab/api/v1/metrics
+curl -s https://spell.example.com/api/v1/metrics
 ```
 ```json
 {
@@ -434,35 +334,23 @@ curl -s https://spell.lab/api/v1/metrics
    ```bash
    cargo build --release
    ```
-2. Enable and start the user systemd service:
+2. Enable and start the systemd service:
    ```bash
    systemctl --user enable --now spell-lab.service
-   systemctl --user status spell-lab.service
    ```
 
-### Docker Compose (Local or Production)
+### Docker Compose
 
-Run the full multi-stage stack (API + React web frontend):
+Run the multi-stage stack (Rust API + Nginx SPA):
 ```bash
-# Production deployment on Prod1 (Server1)
-docker compose -f deploy/docker-compose.prod1.yml up -d --build
+docker compose up -d --build
 ```
 
-### Traefik Edge Routing & TLS Certificates
+### Reverse Proxy & TLS Termination
 
-Spell-Lab is integrated with Traefik 3.6 across both environments:
-
-1. **Local Homelab (`spell.lab`, `spell.lab.lan`)**:
-   - Traefik dynamic config: [`config/traefik/dynamic/spell-lab.yml`](file:///home/raj/server-setups/config/traefik/dynamic/spell-lab.yml).
-   - TLS Certificates signed by the internal **RajLab int-server CA**:
-     - Certificate: [`config/traefik/tls/certs/spell.lab.crt`](file:///home/raj/server-setups/config/traefik/tls/certs/spell.lab.crt)
-     - Key: `/home/raj/server-setups/config/traefik/tls/certs/spell.lab.key`
-     - SANs: `spell.lab`, `spell.lab.lan`, `spell.lab.rajlabs.in`, `spell.rajlabs.in`.
-   - Renewal automated via [`scripts/renew-service-cert.py spell`](file:///home/raj/server-setups/scripts/renew-service-cert.py).
-
-2. **Cloud / Prod 1 (`spell.rajlabs.in`)**:
-   - Routed through Traefik container attached to the `coolify` Docker network.
-   - Public TLS termination via Let's Encrypt automated challenge resolver.
+When deploying behind Traefik, Nginx, or Caddy:
+- Point reverse proxy to port `80` of the `web` container.
+- For Traefik, see sample overlay in [`deploy/docker-compose.traefik.yml`](deploy/docker-compose.traefik.yml) and dynamic config in [`deploy/spell-lab.yml`](deploy/spell-lab.yml).
 
 ---
 
