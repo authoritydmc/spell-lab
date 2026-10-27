@@ -261,7 +261,7 @@ pub struct HealthResponse {
     pub users: u64,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CacheStatsView {
     pub entries: usize,
@@ -269,6 +269,29 @@ pub struct CacheStatsView {
     pub hits: u64,
     pub misses: u64,
     pub hit_rate: f64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProcessMemoryView {
+    pub resident_mb: f64,
+    pub peak_resident_mb: f64,
+    pub virtual_mb: f64,
+    pub threads: u32,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SystemMetricsResponse {
+    pub version: &'static str,
+    pub api_version: &'static str,
+    pub uptime_seconds: u64,
+    pub memory: ProcessMemoryView,
+    pub system_load: [f64; 3],
+    pub global_words: usize,
+    pub users: u64,
+    pub user_words: u64,
+    pub suggestion_cache: CacheStatsView,
 }
 
 #[derive(Debug, Serialize)]
@@ -284,5 +307,7 @@ pub struct StatsResponse {
     pub algorithms: Vec<&'static str>,
     pub suggestion_cache: CacheStatsView,
     pub user_lexicon_cache_entries: usize,
+    pub memory: ProcessMemoryView,
+    pub system_load: [f64; 3],
     pub public_url: String,
 }

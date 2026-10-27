@@ -19,6 +19,7 @@ pub fn router(state: AppState) -> Router {
     let api = Router::new()
         .route("/", get(api_index))
         .route("/health", get(health::health))
+        .route("/metrics", get(health::metrics))
         .route("/stats", get(health::stats))
         .route("/users", post(users::create_user))
         .route("/users/me", get(users::me).delete(users::delete_me))
@@ -55,6 +56,7 @@ async fn api_index() -> impl IntoResponse {
         "description": "Confidence-ranked spellcheck API with per-user dictionaries",
         "endpoints": {
             "health": "GET /api/v1/health",
+            "metrics": "GET /api/v1/metrics",
             "stats": "GET /api/v1/stats",
             "createUser": "POST /api/v1/users",
             "me": "GET /api/v1/users/me",
